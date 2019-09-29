@@ -1,4 +1,5 @@
 import scala.collection.immutable.BitSet
+import scala.collection.decorators._
 import scala.language.implicitConversions
 
 case class Point(col: Int, row: Int) {
