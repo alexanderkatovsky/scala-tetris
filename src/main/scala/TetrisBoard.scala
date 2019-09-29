@@ -125,7 +125,16 @@ class TetrisBoard(val width: Int = 10, val height: Int = 20, private val _board:
   }
 
   private def _eliminateWholeRows(board: BitSet): BitSet = {
-    board
+    val i_start = width * (height - 1)
+    var row_i = BitSet(i_start to i_start + width - 1:_*)
+    var n_rows_eliminated = 0
+    var new_board = BitSet()
+    while(!(board & row_i).isEmpty) {
+      if((board & row_i) == row_i) n_rows_eliminated += 1
+      else new_board ++= (board & row_i) << (n_rows_eliminated * width)
+      row_i >>= width
+    }
+    new_board
   }
 
   private def _addPieceToBoard(piece: BoardPiece): TetrisBoard = {
