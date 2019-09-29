@@ -72,9 +72,8 @@ class TetrisBoard(val width: Int = 10, val height: Int = 20, private val _board:
         var legal_actions = List[PlayerAction]()
         for (move <- Seq(Down, Left, Right, RotateLeft, RotateRight)) {
           val moved_piece = move.move(piece)
-          val action = PlayerAction(moved_piece, this)
-          if(_isLegal(action.piece)) {
-            legal_actions :+= action
+          if(_isLegal(moved_piece)) {
+            legal_actions :+= PlayerAction(moved_piece, this)
           }
         }
         legal_actions
