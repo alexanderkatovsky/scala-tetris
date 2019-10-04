@@ -4,6 +4,7 @@ import scala.util.Random
 class TetrisGame {
   private var _board = new TetrisBoard
   private var _isFinished = false
+  private var _score: Integer = 0
   _addNewPiece
 
   def _addNewPiece = {
@@ -25,17 +26,48 @@ class TetrisGame {
   def executePlayerAction(action: PlayerAction): Int = {
     _board = _board.executePlayerAction(action)
     if(_board.pieceDropped) _addNewPiece
-    1
+    _score += 1
+    _score
   }
 
   def printBoard = _board.printBoard
   def board = _board
   def isFinished = _isFinished
+  def score = _score
 }
 
 
 abstract class Strategy {
   def choosePlayerAction(game: TetrisGame): Option[PlayerAction]
+}
+
+
+class RunStrategy(val strategy: Strategy, val game: TetrisGame = new TetrisGame) {
+  def onPlayerMove = {}
+  def onGameFinish = {}
+
+  def run: Integer = {
+    while(!game.isFinished) {
+      strategy.choosePlayerAction(game) match {
+        case Some(move) => {
+          game.executePlayerAction(move)
+          onPlayerMove
+        }
+        case None => {}
+      }
+    }
+    onGameFinish
+    game.score
+  }
+}
+
+class Simulation(override val strategy: Strategy, override val game: TetrisGame = new TetrisGame, val sleepTime: Long = 0) extends RunStrategy(strategy, game) {
+  override def onPlayerMove = {
+    game.printBoard
+    Thread.sleep(sleepTime)
+  }
+
+  override def onGameFinish = println(f"score: ${game.score}")
 }
 
 class RandomStrategy extends Strategy {
@@ -52,28 +84,8 @@ class RandomStrategy extends Strategy {
 
 
 object RunStrategy {
-  val _sleepTime: Long = 10
-
-  def run(strategy: Strategy, game: TetrisGame = new TetrisGame, isSimulation: Boolean = false): Integer = {
-    var score: Integer = 0
-    while(!game.isFinished) {
-      strategy.choosePlayerAction(game) match {
-        case Some(move) => {
-          score += game.executePlayerAction(move)
-          if(isSimulation) {
-            game.printBoard
-            Thread.sleep(_sleepTime)
-          }
-        }
-        case None => {}
-      }
-    }
-    if(isSimulation) println(f"score: $score")
-    score
-  }
-
   def main(args: Array[String]): Unit = {
-    val svs = new RandomStrategy
-    run(svs, isSimulation=true)
+    val svs = new Simulation(new RandomStrategy, sleepTime=50)
+    svs.run
   }
 }
