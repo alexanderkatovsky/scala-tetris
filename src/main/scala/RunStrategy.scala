@@ -1,6 +1,5 @@
 import scala.util.Random
 
-
 class TetrisGame {
   private var _board = new TetrisBoard
   private var _isFinished = false
@@ -8,7 +7,7 @@ class TetrisGame {
   _addNewPiece
 
   def _addNewPiece = {
-    val pieces = List(T, J, L, Z, S, I, O)
+    val pieces = TetrisBoard.pieces
     val index = Random.nextInt(pieces.length)
     val piece = pieces(index)
     _board.addNewPiece(piece) match {
@@ -17,14 +16,20 @@ class TetrisGame {
     }
   }
 
-  def getPlayerActions: List[PlayerAction] = {
-    val actions = _board.getPlayerActions
+  def getPlayerSingleActions: List[TetrisBoard#PlayerSingleAction] = {
+    val actions = board.getPlayerSingleActions
+    if(actions.length == 0) _isFinished = true
+    actions
+  }
+
+  def getPlayerDroppedActions: List[TetrisBoard#PlayerDroppedAction] = {
+    val actions = _board.getPlayerDroppedActions
     if(actions.length == 0) _isFinished = true
     actions
   }
 
   def executePlayerAction(action: PlayerAction): Int = {
-    _board = _board.executePlayerAction(action)
+    _board = action.execute
     if(_board.pieceDropped) _addNewPiece
     _score += 1
     _score
@@ -72,7 +77,7 @@ class Simulation(override val strategy: Strategy, override val game: TetrisGame 
 
 class RandomStrategy extends Strategy {
   def choosePlayerAction(game: TetrisGame): Option[PlayerAction] = {
-    val actions = game.getPlayerActions
+    val actions = game.getPlayerSingleActions
     if(actions.length > 0) {
       val index = Random.nextInt(actions.length)
       Some(actions(index))
@@ -83,9 +88,40 @@ class RandomStrategy extends Strategy {
 }
 
 
+abstract class Evaluator {
+  def apply(action: TetrisBoard#PlayerDroppedAction): Double
+}
+
+
+class BasicCountEvaluator extends Evaluator {
+  def apply(action: TetrisBoard#PlayerDroppedAction): Double = {
+    action.newBoard.minRow - action.newBoard.numPiecesOnBoard
+  }
+}
+
+
+class SearchEvalStrategy(val evaluator: Evaluator) extends Strategy {
+  def choosePlayerAction(game: TetrisGame): Option[PlayerAction] = {
+    val actions = game.getPlayerDroppedActions
+    if(actions.length > 0) {
+      val action = actions.reduceLeft((a1, a2) => if(evaluator(a1) > evaluator(a2)) a1 else a2)
+      Some(action)
+    } else {
+      None
+    }
+  }
+}
+
+
 object RunStrategy {
   def main(args: Array[String]): Unit = {
-    val svs = new Simulation(new RandomStrategy, sleepTime=50)
-    svs.run
+    for(x <- 0 to 100) {
+      // val strategy = new RandomStrategy
+    val evaluator = new BasicCountEvaluator
+    val strategy = new SearchEvalStrategy(evaluator)
+    // val svs = new Simulation(strategy, sleepTime=100)
+    val svs = new RunStrategy(strategy)
+      println(svs.run)
+    }
   }
 }

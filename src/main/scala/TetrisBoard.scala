@@ -13,10 +13,12 @@ object Point {
 }
 import Point._
 
-sealed class Piece(val positions: Iterable[Point]) {
-  def rotateLeft = new Piece(positions.map((p) => Point(-p.row, p.col)))
-  def rotateRight = new Piece(positions.map((p) => Point(p.row, -p.col)))
+sealed abstract class Piece(val positions: List[Point]) {
+  def rotateLeft = MovedPiece(positions.map((p) => Point(-p.row, p.col)))
+  def rotateRight = MovedPiece(positions.map((p) => Point(p.row, -p.col)))
 }
+
+case class MovedPiece(override val positions: List[Point]) extends Piece(positions)
 
 case object T extends Piece(List((0, 0), (-1, 0), (1, 0), (0, -1)))
 case object J extends Piece(List((0, 0), (-1, 0), (0, -1), (0, -2)))
@@ -59,24 +61,62 @@ case object RotateRight extends Move {
   }
 }
 
-case class PlayerAction(piece: BoardPiece, board: TetrisBoard)
+trait PlayerAction {
+  def execute: TetrisBoard
+}
 
 class TetrisBoard(val width: Int = 10, val height: Int = 20, private val _board: BitSet = BitSet(), private val _piece: Option[BoardPiece] = None) {
+  case class PlayerSingleAction(piece: BoardPiece) extends PlayerAction {
+    def execute = {
+      if(_hasPieceDropped(piece)) _addPieceToBoard(piece)
+      else new TetrisBoard(width, height, _board, Some(piece))
+    }
+  }
+  case class PlayerDroppedAction(singleActions: List[PlayerSingleAction], newBoard: TetrisBoard) extends PlayerAction {
+    def execute = newBoard
+  }
+
   def ==(other: TetrisBoard) = {
     (other._board == _board) && (other._piece == _piece)
   }
   
-  def getPlayerActions: List[PlayerAction] = {
+  def _getPlayerSingleActions(piece: BoardPiece): List[PlayerSingleAction] = {
+    var legal_actions = List[PlayerSingleAction]()
+    for (move <- Seq(Down, Left, Right, RotateLeft, RotateRight)) {
+      val moved_piece = move.move(piece)
+      if(_isLegal(moved_piece)) {
+        legal_actions :+= PlayerSingleAction(moved_piece)
+      }
+    }
+    legal_actions
+  }
+
+  def getPlayerSingleActions: List[PlayerSingleAction] = {
+    _piece match {
+      case Some(piece) => _getPlayerSingleActions(piece)
+      case None => List()
+    }
+  }
+
+  def getPlayerDroppedActions: List[PlayerDroppedAction] = {
     _piece match {
       case Some(piece) => {
-        var legal_actions = List[PlayerAction]()
-        for (move <- Seq(Down, Left, Right, RotateLeft, RotateRight)) {
-          val moved_piece = move.move(piece)
-          if(_isLegal(moved_piece)) {
-            legal_actions :+= PlayerAction(moved_piece, this)
+        var finalBoards: Map[BitSet, List[PlayerSingleAction]] = Map()
+        var tetrisBoards: Map[Set[Point], (BoardPiece, List[PlayerSingleAction])] = Map(piece.positions.toSet -> (piece, List()))
+        while(!tetrisBoards.isEmpty) {
+          var newTetrisBoards: Map[Set[Point], (BoardPiece, List[PlayerSingleAction])] = Map()
+          for((piece, actions) <- tetrisBoards.values) {
+            for(action <- _getPlayerSingleActions(piece)) {
+              val newBoard = action.execute
+              newBoard._piece match {
+                case Some(piece) => newTetrisBoards += (piece.positions.toSet -> (piece, actions :+ action))
+                case None => finalBoards += (newBoard._board -> (actions :+ action))
+              }
+            }
           }
+          tetrisBoards = newTetrisBoards
         }
-        legal_actions
+        finalBoards.toList.map({case (board, actions) => PlayerDroppedAction(actions, new TetrisBoard(width, height, board, None))})
       }
       case None => List()
     }
@@ -84,6 +124,10 @@ class TetrisBoard(val width: Int = 10, val height: Int = 20, private val _board:
 
   def isTopRowOccupied = {
     (for(col <- 0 to width - 1) yield _boardValue((col, 0))).exists(_)
+  }
+
+  def numPiecesOnBoard = {
+    _board.size
   }
 
   private def _startAnchor: Point = (width / 2, 0)
@@ -94,15 +138,12 @@ class TetrisBoard(val width: Int = 10, val height: Int = 20, private val _board:
     else None
   }
 
-  def pieceDropped = _piece == None
-
-  def executePlayerAction(action: PlayerAction): TetrisBoard = {
-    if(action.board != this)
-      throw new Exception("illegal action")
-    val piece = action.piece
-    if(_hasPieceDropped(piece)) _addPieceToBoard(piece)
-    else new TetrisBoard(width, height, _board, Some(piece))
+  def minRow: Int = {
+    if(_board.isEmpty) 0
+    _board.min / width
   }
+
+  def pieceDropped = _piece == None
 
   private def _isLegal(piece: BoardPiece): Boolean = {
     !piece.positions.exists((x) => _boardValue(x) || x.row >= height || x.col < 0 || x.col >= width)
@@ -160,4 +201,8 @@ class TetrisBoard(val width: Int = 10, val height: Int = 20, private val _board:
     }
     println(line)
   }
+}
+
+object TetrisBoard {
+  val pieces = List(T, J, L, Z, S, I, O)
 }
