@@ -1,4 +1,10 @@
 import scala.util.Random
+import scala.concurrent.{Await, Future}
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.{Failure, Success}
+import scala.concurrent.duration.Duration
+import java.util.concurrent.CopyOnWriteArrayList
+import scala.collection.JavaConverters._
 
 class TetrisGame {
   private var _board = new TetrisBoard
@@ -64,16 +70,6 @@ class RunStrategy(val strategy: Strategy) {
     }
     onGameFinish
     _game.score
-  }
-
-  def runMany(n: Int): Double = {
-    var scores = List[Double]()
-    for(_ <- 0 to n) {
-      val score = run
-      println(score)
-      scores :+= score.toDouble
-    }
-    scores.sum / n
   }
 
   def game = _game
@@ -171,13 +167,40 @@ class SearchEvalStrategySingleMoves(val evaluator: Evaluator) extends Strategy {
 
 
 object RunStrategy {
+  // Run simulations concurrently
+  def runMany(n: Int, strategy: Strategy): Double = {
+    var scores = new CopyOnWriteArrayList[Double]()  // Thread safe
+    def computation = {
+      for(_ <- 0 to n) yield {
+        val f = Future {
+          val runStrategy = new RunStrategy(strategy)
+          val score = runStrategy.run
+          score
+        }
+        f.onComplete {
+          case Success(score) => {
+            scores.add(score.toDouble)
+            println(score)
+          }
+          case Failure(e) => e.printStackTrace
+        }
+        f
+      }
+    }
+    Await.result(Future.sequence(computation), Duration.Inf)  // Block
+    scores.asScala.toSeq.sum / n
+  }
+
   def main(args: Array[String]): Unit = {
     // val strategy = new RandomStrategy
-    val evaluator = new LinearCombonationEvaluator(List((1.0, new HeatCounter), (50.0, new EmptySquaresBoxedInColCounter), (100.0, new EmptySquaresEnclosedCounter)))
+    val evaluator = new LinearCombonationEvaluator(List(
+      (1.3, new HeatCounter),
+      (50.0, new EmptySquaresBoxedInColCounter),
+      // (50.0, new EmptySquaresBoxedInCounter),
+      (100.0, new EmptySquaresEnclosedCounter)))
     val strategy = new SearchEvalStrategy(evaluator)
-    val svs = new Simulation(strategy, sleepTime=0)
-    svs.run
-    // val svs = new RunStrategy(strategy)
-    // println(svs.runMany(100))
+    //val svs = new Simulation(strategy, sleepTime=0)
+    //svs.run
+    println(runMany(100, strategy))
   }
 }
