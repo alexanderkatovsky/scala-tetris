@@ -30,6 +30,7 @@ case object O extends Piece(List((0, 0), (0, -1), (-1, 0), (-1, -1)))
 
 case class BoardPiece(piece: Piece, anchor: Point) {
   def positions = piece.positions.map(_ + anchor)
+  def maxRow = positions.map(_.row).max
 }
 
 sealed abstract class Move {
@@ -80,9 +81,9 @@ class TetrisBoard(val width: Int = 10, val height: Int = 20, private val _board:
     (other._board == _board) && (other._piece == _piece)
   }
   
-  def _getPlayerSingleActions(piece: BoardPiece): List[PlayerSingleAction] = {
+  def _getPlayerSingleActions(piece: BoardPiece, moves: Seq[Move] = Seq(Down, Left, Right, RotateLeft, RotateRight)): List[PlayerSingleAction] = {
     var legal_actions = List[PlayerSingleAction]()
-    for (move <- Seq(Down, Left, Right, RotateLeft, RotateRight)) {
+    for (move <- moves) {
       val moved_piece = move.move(piece)
       if(_isLegal(moved_piece)) {
         legal_actions :+= PlayerSingleAction(moved_piece)
@@ -98,12 +99,31 @@ class TetrisBoard(val width: Int = 10, val height: Int = 20, private val _board:
     }
   }
 
+  private def _dropToWithin(nRows: Int): List[PlayerSingleAction] = {
+    var piece_ = _piece
+    var actions = List[PlayerSingleAction]()
+    while(true) {
+      piece_ match {
+        case Some(piece) => {
+          if(minRow - piece.maxRow <= nRows) return actions
+          actions ++= _getPlayerSingleActions(piece, Seq(Down))
+          piece_ = Some(actions.last.piece)
+        }
+        case None => return actions
+      }
+    }
+    actions
+  }
+
   def getPlayerDroppedActions: List[PlayerDroppedAction] = {
-    _piece match {
+    val dropActions = _dropToWithin(8)
+    var piece = _piece
+    if(!dropActions.isEmpty) piece = Some(dropActions.last.piece)
+    piece match {
       case Some(piece) => {
         var finalBoards: Map[BitSet, List[PlayerSingleAction]] = Map()
         var alreadySeen: Set[Set[Point]] = Set()
-        var tetrisBoards: Map[Set[Point], (BoardPiece, List[PlayerSingleAction])] = Map(piece.positions.toSet -> (piece, List()))
+        var tetrisBoards: Map[Set[Point], (BoardPiece, List[PlayerSingleAction])] = Map(piece.positions.toSet -> (piece, dropActions))
         while(!tetrisBoards.isEmpty) {
           var newTetrisBoards: Map[Set[Point], (BoardPiece, List[PlayerSingleAction])] = Map()
           for((piece, actions) <- tetrisBoards.values) {
@@ -144,8 +164,8 @@ class TetrisBoard(val width: Int = 10, val height: Int = 20, private val _board:
   }
 
   def minRow: Int = {
-    if(_board.isEmpty) 0
-    _board.min / width
+    if(_board.isEmpty) height
+    else _board.min / width
   }
 
   def pieceDropped = _piece == None

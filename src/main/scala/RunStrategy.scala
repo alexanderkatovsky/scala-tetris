@@ -47,26 +47,40 @@ abstract class Strategy {
 }
 
 
-class RunStrategy(val strategy: Strategy, val game: TetrisGame = new TetrisGame) {
+class RunStrategy(val strategy: Strategy) {
+  private var _game: TetrisGame = null
   def onPlayerMove = {}
   def onGameFinish = {}
 
   def run: Integer = {
-    while(!game.isFinished) {
-      strategy.choosePlayerAction(game) match {
+    _game = new TetrisGame
+    while(!_game.isFinished) {
+      strategy.choosePlayerAction(_game) match {
         case Some(move) => {
-          game.executePlayerAction(move)
+          _game.executePlayerAction(move)
           onPlayerMove
         }
         case None => {}
       }
     }
     onGameFinish
-    game.score
+    _game.score
   }
+
+  def runMany(n: Int): Double = {
+    var scores = List[Double]()
+    for(_ <- 0 to n) {
+      val score = run
+      println(score)
+      scores :+= score.toDouble
+    }
+    scores.sum / n
+  }
+
+  def game = _game
 }
 
-class Simulation(override val strategy: Strategy, override val game: TetrisGame = new TetrisGame, val sleepTime: Long = 0) extends RunStrategy(strategy, game) {
+class Simulation(override val strategy: Strategy, val sleepTime: Long = 0) extends RunStrategy(strategy) {
   override def onPlayerMove = {
     game.printBoard
     Thread.sleep(sleepTime)
@@ -101,7 +115,7 @@ class BasicCountEvaluator extends Evaluator {
 
 
 class SearchEvalStrategy(val evaluator: Evaluator) extends Strategy {
-  def choosePlayerAction(game: TetrisGame): Option[PlayerAction] = {
+  def choosePlayerAction(game: TetrisGame): Option[TetrisBoard#PlayerDroppedAction] = {
     val actions = game.getPlayerDroppedActions
     if(actions.length > 0) {
       val action = actions.reduceLeft((a1, a2) => if(evaluator(a1) > evaluator(a2)) a1 else a2)
@@ -112,16 +126,36 @@ class SearchEvalStrategy(val evaluator: Evaluator) extends Strategy {
   }
 }
 
+class SearchEvalStrategySingleMoves(val evaluator: Evaluator) extends Strategy {
+  private var _actions = List[TetrisBoard#PlayerSingleAction]()
+  val strategy = new SearchEvalStrategy(evaluator)
+
+  def choosePlayerAction(game: TetrisGame): Option[PlayerAction] = {
+    if(_actions.isEmpty) {
+      strategy.choosePlayerAction(game) match {
+        case Some(mAction) => {
+          _actions = mAction.singleActions
+        }
+        case None => {}
+      }
+    }
+    if(!_actions.isEmpty) {
+      val returnAction = Some(_actions.head)
+      _actions = _actions.tail
+      returnAction
+    } else None
+  }
+}
+
 
 object RunStrategy {
   def main(args: Array[String]): Unit = {
-    for(x <- 0 to 100) {
-      // val strategy = new RandomStrategy
+    // val strategy = new RandomStrategy
     val evaluator = new BasicCountEvaluator
-    val strategy = new SearchEvalStrategy(evaluator)
+    val strategy = new SearchEvalStrategySingleMoves(evaluator)
     // val svs = new Simulation(strategy, sleepTime=100)
+    // svs.run
     val svs = new RunStrategy(strategy)
-      println(svs.run)
-    }
+    println(svs.runMany(100))
   }
 }
