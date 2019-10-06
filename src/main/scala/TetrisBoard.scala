@@ -226,7 +226,7 @@ class TetrisBoard(val width: Int = 10, val height: Int = 20, private val _board:
   }
 
   def printBoard: Unit = {
-    val line = " " + "-" * width 
+    val line = " " + "-" * width
     println(line)
     for(row <- 0 to height - 1) {
       val st = "|" + (for (col <- (0 to width - 1)) yield (if(_isOnBoard((col, row))) "X" else " ")).mkString("") + "|"
@@ -234,6 +234,44 @@ class TetrisBoard(val width: Int = 10, val height: Int = 20, private val _board:
     }
     println(line)
   }
+
+  case class Square(val row: Int, val col: Int) {
+    def isEmpty = {
+      if(row >= 0 && col >= 0) {
+        val index = _pointToIndex((col, row))
+        !_board(index)
+      } else false
+    }
+
+    def toLeft = Square(row, col - 1)
+    def toRight = Square(row, col + 1)
+    def above = Square(row - 1, col)
+  }
+
+  case class Column(val col: Int) {
+    def numEmptySquaresFromTop: Int = {
+      val numbersInCol = _board.filter(_ % width == col)
+      if(numbersInCol.isEmpty) height
+      else {
+        val point = _indexToPoint(numbersInCol.min)
+        point.row
+      }
+    }
+  }
+
+  case class Row(val row: Int) {
+    def squares = for(col <- 0 to width - 1) yield Square(row, col)
+  }
+
+  def columns = {
+    for(col <- 0 to width - 1) yield Column(col)
+  }
+
+  def nonEmptyRows = {
+    for(row <- height - 1 to minRow by -1) yield Row(row)
+  }
+
+  def numSquares = height * width
 }
 
 object TetrisBoard {

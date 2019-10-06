@@ -105,10 +105,34 @@ abstract class Evaluator {
   def apply(board: TetrisBoard): Double
 }
 
+class LinearCombonationEvaluator(private val _weights: List[(Double, Evaluator)]) extends Evaluator {
+  def apply(board: TetrisBoard): Double = {
+    _weights.map({case (weight, evaluator) => weight * evaluator(board)}).sum
+  }
+}
+
 class HeatCounter extends Evaluator {
   def apply(board: TetrisBoard): Double = {
     val height = board.height
     -board.pieces.map((piece) => Math.pow(height - piece.row - 1, 2)).sum
+  }
+}
+
+class EmptySquaresEnclosedCounter extends Evaluator {
+  def apply(board: TetrisBoard): Double = {
+    -(board.numSquares - board.numPiecesOnBoard - board.columns.map(_.numEmptySquaresFromTop).sum)
+  }
+}
+
+class EmptySquaresBoxedInColCounter extends Evaluator {
+  def apply(board: TetrisBoard): Double = {
+    -board.nonEmptyRows.map(_.squares.count((square) => square.isEmpty && !square.toRight.isEmpty && !square.toLeft.isEmpty)).sum[Int]
+  }
+}
+
+class EmptySquaresBoxedInCounter extends Evaluator {
+  def apply(board: TetrisBoard): Double = {
+    -board.nonEmptyRows.map(_.squares.count((square) => square.isEmpty && !square.toRight.isEmpty && !square.toLeft.isEmpty && !square.above.isEmpty)).sum[Int]
   }
 }
 
@@ -149,9 +173,9 @@ class SearchEvalStrategySingleMoves(val evaluator: Evaluator) extends Strategy {
 object RunStrategy {
   def main(args: Array[String]): Unit = {
     // val strategy = new RandomStrategy
-    val evaluator = new HeatCounter
-    val strategy = new SearchEvalStrategySingleMoves(evaluator)
-    val svs = new Simulation(strategy, sleepTime=10)
+    val evaluator = new LinearCombonationEvaluator(List((1.0, new HeatCounter), (50.0, new EmptySquaresBoxedInColCounter), (100.0, new EmptySquaresEnclosedCounter)))
+    val strategy = new SearchEvalStrategy(evaluator)
+    val svs = new Simulation(strategy, sleepTime=0)
     svs.run
     // val svs = new RunStrategy(strategy)
     // println(svs.runMany(100))
