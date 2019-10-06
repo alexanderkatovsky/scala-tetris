@@ -102,6 +102,7 @@ class TetrisBoard(val width: Int = 10, val height: Int = 20, private val _board:
     _piece match {
       case Some(piece) => {
         var finalBoards: Map[BitSet, List[PlayerSingleAction]] = Map()
+        var alreadySeen: Set[Set[Point]] = Set()
         var tetrisBoards: Map[Set[Point], (BoardPiece, List[PlayerSingleAction])] = Map(piece.positions.toSet -> (piece, List()))
         while(!tetrisBoards.isEmpty) {
           var newTetrisBoards: Map[Set[Point], (BoardPiece, List[PlayerSingleAction])] = Map()
@@ -109,11 +110,15 @@ class TetrisBoard(val width: Int = 10, val height: Int = 20, private val _board:
             for(action <- _getPlayerSingleActions(piece)) {
               val newBoard = action.execute
               newBoard._piece match {
-                case Some(piece) => newTetrisBoards += (piece.positions.toSet -> (piece, actions :+ action))
+                case Some(piece) => {
+                  val posSet = piece.positions.toSet
+                  if(!alreadySeen.contains(posSet)) newTetrisBoards += (posSet -> (piece, actions :+ action))
+                }
                 case None => finalBoards += (newBoard._board -> (actions :+ action))
               }
             }
           }
+          alreadySeen ++= newTetrisBoards.keys
           tetrisBoards = newTetrisBoards
         }
         finalBoards.toList.map({case (board, actions) => PlayerDroppedAction(actions, new TetrisBoard(width, height, board, None))})
