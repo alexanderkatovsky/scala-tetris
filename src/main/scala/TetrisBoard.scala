@@ -168,6 +168,10 @@ class TetrisBoard(val width: Int = 10, val height: Int = 20, private val _board:
     else _board.min / width
   }
 
+  def pieces: Seq[Point] = {
+    for(x <- _board.toSeq) yield _indexToPoint(x)
+  }
+
   def pieceDropped = _piece == None
 
   private def _isLegal(piece: BoardPiece): Boolean = {
@@ -176,6 +180,10 @@ class TetrisBoard(val width: Int = 10, val height: Int = 20, private val _board:
 
   private def _pointToIndex(point: Point): Int = {
     point.row * width + point.col
+  }
+
+  private def _indexToPoint(index: Int): Point = {
+    return Point(index % width, index / width)
   }
 
   private def _boardValue(point: Point): Boolean = {

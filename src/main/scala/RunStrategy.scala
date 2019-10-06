@@ -17,7 +17,7 @@ class TetrisGame {
   }
 
   def getPlayerSingleActions: List[TetrisBoard#PlayerSingleAction] = {
-    val actions = board.getPlayerSingleActions
+    val actions = _board.getPlayerSingleActions
     if(actions.length == 0) _isFinished = true
     actions
   }
@@ -36,7 +36,6 @@ class TetrisGame {
   }
 
   def printBoard = _board.printBoard
-  def board = _board
   def isFinished = _isFinished
   def score = _score
 }
@@ -103,22 +102,21 @@ class RandomStrategy extends Strategy {
 
 
 abstract class Evaluator {
-  def apply(action: TetrisBoard#PlayerDroppedAction): Double
+  def apply(board: TetrisBoard): Double
 }
 
-
-class BasicCountEvaluator extends Evaluator {
-  def apply(action: TetrisBoard#PlayerDroppedAction): Double = {
-    action.newBoard.minRow - action.newBoard.numPiecesOnBoard
+class HeatCounter extends Evaluator {
+  def apply(board: TetrisBoard): Double = {
+    val height = board.height
+    -board.pieces.map((piece) => Math.pow(height - piece.row - 1, 2)).sum
   }
 }
-
 
 class SearchEvalStrategy(val evaluator: Evaluator) extends Strategy {
   def choosePlayerAction(game: TetrisGame): Option[TetrisBoard#PlayerDroppedAction] = {
     val actions = game.getPlayerDroppedActions
     if(actions.length > 0) {
-      val action = actions.reduceLeft((a1, a2) => if(evaluator(a1) > evaluator(a2)) a1 else a2)
+      val action = actions.reduceLeft((a1, a2) => if(evaluator(a1.newBoard) > evaluator(a2.newBoard)) a1 else a2)
       Some(action)
     } else {
       None
@@ -151,11 +149,11 @@ class SearchEvalStrategySingleMoves(val evaluator: Evaluator) extends Strategy {
 object RunStrategy {
   def main(args: Array[String]): Unit = {
     // val strategy = new RandomStrategy
-    val evaluator = new BasicCountEvaluator
+    val evaluator = new HeatCounter
     val strategy = new SearchEvalStrategySingleMoves(evaluator)
-    // val svs = new Simulation(strategy, sleepTime=100)
-    // svs.run
-    val svs = new RunStrategy(strategy)
-    println(svs.runMany(100))
+    val svs = new Simulation(strategy, sleepTime=10)
+    svs.run
+    // val svs = new RunStrategy(strategy)
+    // println(svs.runMany(100))
   }
 }
