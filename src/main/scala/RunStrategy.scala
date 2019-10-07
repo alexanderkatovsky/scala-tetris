@@ -167,13 +167,15 @@ class SearchEvalStrategySingleMoves(val evaluator: Evaluator) extends Strategy {
 
 
 object RunStrategy {
+  case class SimulationResult(harmonicMean: Double, mean: Double)
+
   // Run simulations concurrently
-  def runMany(n: Int, strategy: Strategy): Double = {
+  def runMany(n: Int, strategyGenerator: () => Strategy): SimulationResult = {
     var scores = new CopyOnWriteArrayList[Double]()  // Thread safe
     def computation = {
       for(_ <- 0 to n) yield {
         val f = Future {
-          val runStrategy = new RunStrategy(strategy)
+          val runStrategy = new RunStrategy(strategyGenerator())
           val score = runStrategy.run
           score
         }
@@ -188,19 +190,18 @@ object RunStrategy {
       }
     }
     Await.result(Future.sequence(computation), Duration.Inf)  // Block
-    scores.asScala.toSeq.sum / n
+    val scoresList = scores.asScala.toList
+    SimulationResult(scoresList.size / (scoresList.map(1. / _).sum), scoresList.sum / scoresList.size)
   }
 
   def main(args: Array[String]): Unit = {
-    // val strategy = new RandomStrategy
     val evaluator = new LinearCombonationEvaluator(List(
       (1.3, new HeatCounter),
       (50.0, new EmptySquaresBoxedInColCounter),
       // (50.0, new EmptySquaresBoxedInCounter),
       (100.0, new EmptySquaresEnclosedCounter)))
-    val strategy = new SearchEvalStrategy(evaluator)
     //val svs = new Simulation(strategy, sleepTime=0)
     //svs.run
-    println(runMany(100, strategy))
+    println(runMany(100, () => new SearchEvalStrategySingleMoves(evaluator)))
   }
 }
