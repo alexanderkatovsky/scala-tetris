@@ -3,8 +3,6 @@ import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success}
 import scala.concurrent.duration.Duration
-import java.util.concurrent.CopyOnWriteArrayList
-import scala.collection.JavaConverters._
 
 class TetrisGame {
   private var _board = new TetrisBoard
@@ -107,6 +105,12 @@ class LinearCombonationEvaluator(private val _weights: List[(Double, Evaluator)]
   }
 }
 
+class ConditionalEvaluator(private val _fn: TetrisBoard => Evaluator) extends Evaluator {
+  def apply(board: TetrisBoard): Double = {
+    _fn(board)(board)
+  }
+}
+
 class HeatCounter extends Evaluator {
   def apply(board: TetrisBoard): Double = {
     val height = board.height
@@ -171,7 +175,7 @@ object RunStrategy {
 
   // Run simulations concurrently
   def runMany(n: Int, strategyGenerator: () => Strategy): SimulationResult = {
-    var scores = new CopyOnWriteArrayList[Double]()  // Thread safe
+    var scores = List[Double]()
     def computation = {
       for(_ <- 0 to n) yield {
         val f = Future {
@@ -180,8 +184,8 @@ object RunStrategy {
           score
         }
         f.onComplete {
-          case Success(score) => {
-            scores.add(score.toDouble)
+          case Success(score) => synchronized {
+            scores :+= score.toDouble
             println(score)
           }
           case Failure(e) => e.printStackTrace
@@ -190,18 +194,33 @@ object RunStrategy {
       }
     }
     Await.result(Future.sequence(computation), Duration.Inf)  // Block
-    val scoresList = scores.asScala.toList
-    SimulationResult(scoresList.size / (scoresList.map(1. / _).sum), scoresList.sum / scoresList.size)
+    SimulationResult(scores.size / (scores.map(1. / _).sum), scores.sum / scores.size)
+  }
+
+  def runStrategyWithConfiguration(a: List[Double], nsim: Int=100): Double = {
+    val evaluatorA = new LinearCombonationEvaluator(List(
+      (a(0), new HeatCounter),
+      (a(1), new EmptySquaresBoxedInColCounter),
+      (a(2), new EmptySquaresBoxedInCounter),
+      (a(3), new EmptySquaresEnclosedCounter)))
+    val evaluatorB = new LinearCombonationEvaluator(List(
+      (a(4), new HeatCounter),
+      (a(5), new EmptySquaresBoxedInColCounter),
+      (a(6), new EmptySquaresBoxedInCounter),
+      (a(7), new EmptySquaresEnclosedCounter)))
+    val evaluatorC = new LinearCombonationEvaluator(List(
+      (a(8), new HeatCounter),
+      (a(9), new EmptySquaresBoxedInColCounter),
+      (a(10), new EmptySquaresBoxedInCounter),
+      (a(11), new EmptySquaresEnclosedCounter)))
+    val evaluator = new ConditionalEvaluator((board: TetrisBoard) => {
+      if(board.minRow < board.height / 3) evaluatorA else if(board.minRow < 2 * board.height / 3) evaluatorB else evaluatorC
+    })
+    runMany(nsim, () => new SearchEvalStrategy(evaluator)).harmonicMean
   }
 
   def main(args: Array[String]): Unit = {
-    val evaluator = new LinearCombonationEvaluator(List(
-      (1.3, new HeatCounter),
-      (50.0, new EmptySquaresBoxedInColCounter),
-      // (50.0, new EmptySquaresBoxedInCounter),
-      (100.0, new EmptySquaresEnclosedCounter)))
-    //val svs = new Simulation(strategy, sleepTime=0)
-    //svs.run
-    println(runMany(100, () => new SearchEvalStrategySingleMoves(evaluator)))
+    val a = List[Double](1.3, 50.0, 50.0, 100.0, 1.3, 50.0, 50.0, 100.0, 1.3, 50.0, 50.0, 100.0)
+    println(runStrategyWithConfiguration(a))
   }
 }
