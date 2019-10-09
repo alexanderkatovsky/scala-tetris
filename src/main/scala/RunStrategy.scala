@@ -186,7 +186,7 @@ object RunStrategy {
         f.onComplete {
           case Success(score) => synchronized {
             scores :+= score.toDouble
-            println(score)
+            // println(score)
           }
           case Failure(e) => e.printStackTrace
         }
@@ -197,7 +197,7 @@ object RunStrategy {
     SimulationResult(scores.size / (scores.map(1. / _).sum), scores.sum / scores.size)
   }
 
-  def runStrategyWithConfiguration(a: List[Double], nsim: Int=100): Double = {
+  def runStrategyWithConfiguration(a: Array[Double], nsim: Int=100): Double = {
     val evaluatorA = new LinearCombonationEvaluator(List(
       (a(0), new HeatCounter),
       (a(1), new EmptySquaresBoxedInColCounter),
@@ -220,7 +220,7 @@ object RunStrategy {
   }
 
   def main(args: Array[String]): Unit = {
-    val a = List[Double](1.3, 50.0, 50.0, 100.0, 1.3, 50.0, 50.0, 100.0, 1.3, 50.0, 50.0, 100.0)
-    println(runStrategyWithConfiguration(a))
+    val a = Array[Double](1.3, 50.0, 50.0, 100.0, 1.3, 50.0, 50.0, 100.0, 1.3, 50.0, 50.0, 100.0)
+    runStrategyWithConfiguration(a, 10)
   }
 }
