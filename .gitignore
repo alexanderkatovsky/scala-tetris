@@ -2,3 +2,4 @@ classes
 target
 lib
 .idea
+src/python/smac3-output**
