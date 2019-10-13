@@ -9,20 +9,22 @@ def smac_opt():
     from ConfigSpace.hyperparameters import UniformFloatHyperparameter
     # Import SMAC-utilities
     from smac.scenario.scenario import Scenario
-    from smac.facade.smac_bo_facade import SMAC4BO
+    from smac.facade.smac_hpo_facade import SMAC4HPO
+
+    n_params = 5
 
     def fun_to_optimize(x):
         from jnius import autoclass
         RunStrategy = autoclass('RunStrategy')
 
-        params = [x[f'x{i}'] for i in range(0, 12)]
+        params = [x[f'x{i}'] for i in range(0, n_params)]
         print(f'params:{params}')
-        ret = -RunStrategy.runStrategyWithConfiguration(params, 100)
+        ret = -RunStrategy.runStrategyWithConfiguration2(params, 20)
         print(ret)
         return ret
 
     cs = ConfigurationSpace()
-    hyper_params = [UniformFloatHyperparameter(f"x{i}", 0, 100, default_value=1) for i in range(0, 12)]
+    hyper_params = [UniformFloatHyperparameter(f"x{i}", 0, 100, default_value=1) for i in range(0, n_params)]
     cs.add_hyperparameters(hyper_params)
 
     # Scenario object
@@ -34,7 +36,7 @@ def smac_opt():
 
 
     # Optimize, using a SMAC-object
-    smac = SMAC4BO(scenario=scenario,
+    smac = SMAC4HPO(scenario=scenario,
                    rng=np.random.RandomState(42),
                    tae_runner=fun_to_optimize)
 

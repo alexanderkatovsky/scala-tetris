@@ -118,6 +118,12 @@ class HeatCounter extends Evaluator {
   }
 }
 
+class NumberOfPieces extends Evaluator {
+  def apply(board: TetrisBoard): Double = {
+    -board.numPiecesOnBoard
+  }
+}
+
 class EmptySquaresEnclosedCounter extends Evaluator {
   def apply(board: TetrisBoard): Double = {
     -(board.numSquares - board.numPiecesOnBoard - board.columns.map(_.numEmptySquaresFromTop).sum)
@@ -132,7 +138,7 @@ class EmptySquaresBoxedInColCounter extends Evaluator {
 
 class EmptySquaresBoxedInCounter extends Evaluator {
   def apply(board: TetrisBoard): Double = {
-    -board.nonEmptyRows.map(_.squares.count((square) => square.isEmpty && !square.toRight.isEmpty && !square.toLeft.isEmpty && !square.above.isEmpty)).sum[Int]
+    -board.nonEmptyRows.map(_.squares.count((square) => square.isEmpty && !(square.toRight.isEmpty || square.toLeft.isEmpty || square.above.isEmpty || square.below.isEmpty))).sum[Int]
   }
 }
 
@@ -198,29 +204,39 @@ object RunStrategy {
   }
 
   def runStrategyWithConfiguration(a: Array[Double], nsim: Int=100): Double = {
-    val evaluatorA = new LinearCombonationEvaluator(List(
+    val evaluator = new LinearCombonationEvaluator(List(
       (a(0), new HeatCounter),
       (a(1), new EmptySquaresBoxedInColCounter),
       (a(2), new EmptySquaresBoxedInCounter),
       (a(3), new EmptySquaresEnclosedCounter)))
-    val evaluatorB = new LinearCombonationEvaluator(List(
-      (a(4), new HeatCounter),
-      (a(5), new EmptySquaresBoxedInColCounter),
-      (a(6), new EmptySquaresBoxedInCounter),
-      (a(7), new EmptySquaresEnclosedCounter)))
-    val evaluatorC = new LinearCombonationEvaluator(List(
-      (a(8), new HeatCounter),
-      (a(9), new EmptySquaresBoxedInColCounter),
-      (a(10), new EmptySquaresBoxedInCounter),
-      (a(11), new EmptySquaresEnclosedCounter)))
-    val evaluator = new ConditionalEvaluator((board: TetrisBoard) => {
-      if(board.minRow < board.height / 3) evaluatorA else if(board.minRow < 2 * board.height / 3) evaluatorB else evaluatorC
-    })
+    runMany(nsim, () => new SearchEvalStrategy(evaluator)).harmonicMean
+  }
+
+  def runStrategyWithConfiguration2(a: Array[Double], nsim: Int=100): Double = {
+    val evaluator = new LinearCombonationEvaluator(List(
+      (a(0), new HeatCounter),
+      (a(1), new EmptySquaresBoxedInColCounter),
+      (a(2), new EmptySquaresBoxedInCounter),
+      (a(3), new EmptySquaresEnclosedCounter),
+      (a(4), new NumberOfPieces)))
     runMany(nsim, () => new SearchEvalStrategy(evaluator)).harmonicMean
   }
 
   def main(args: Array[String]): Unit = {
-    val a = Array[Double](1.3, 50.0, 50.0, 100.0, 1.3, 50.0, 50.0, 100.0, 1.3, 50.0, 50.0, 100.0)
-    runStrategyWithConfiguration(a, 10)
+    // val a: Array[Double] = Array(0.5249136820544308, 24.429006558196026, 1.3261097078240618, 71.8004953210443)
+    // val evaluator = new LinearCombonationEvaluator(List(
+    //   (a(0), new HeatCounter),
+    //   (a(1), new EmptySquaresBoxedInColCounter),
+    //   (a(2), new EmptySquaresBoxedInCounter),
+    //   (a(3), new EmptySquaresEnclosedCounter)))
+    val a: Array[Double] = Array(0.699622016895185, 37.884364583911335, 3.7361015320832975, 98.53178383544285, 0.9647204495914462)
+    val evaluator = new LinearCombonationEvaluator(List(
+      (a(0), new HeatCounter),
+      (a(1), new EmptySquaresBoxedInColCounter),
+      (a(2), new EmptySquaresBoxedInCounter),
+      (a(3), new EmptySquaresEnclosedCounter),
+      (a(4), new NumberOfPieces)))
+    // println(runStrategyWithConfiguration(a, 10))
+    new Simulation(strategy=new SearchEvalStrategySingleMoves(evaluator), sleepTime=10).run
   }
 }

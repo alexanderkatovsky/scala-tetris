@@ -237,7 +237,7 @@ class TetrisBoard(val width: Int = 10, val height: Int = 20, private val _board:
 
   case class Square(val row: Int, val col: Int) {
     def isEmpty = {
-      if(row >= 0 && col >= 0) {
+      if(row >= 0 && col >= 0 && row < height && col < width) {
         val index = _pointToIndex((col, row))
         !_board(index)
       } else false
@@ -246,6 +246,7 @@ class TetrisBoard(val width: Int = 10, val height: Int = 20, private val _board:
     def toLeft = Square(row, col - 1)
     def toRight = Square(row, col + 1)
     def above = Square(row - 1, col)
+    def below = Square(row + 1, col)
   }
 
   case class Column(val col: Int) {
