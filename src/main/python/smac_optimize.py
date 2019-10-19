@@ -1,3 +1,5 @@
+# Make jar file with 'assembly' command in sbt
+
 import os
 import numpy as np
 os.environ['CLASSPATH'] = "../../target/scala-2.13/Tetris-assembly-0.1.jar"
@@ -19,7 +21,7 @@ def smac_opt():
 
         params = [x[f'x{i}'] for i in range(0, n_params)]
         print(f'params:{params}')
-        ret = -RunStrategy.runStrategyWithConfiguration2(params, 20)
+        ret = -RunStrategy.runStrategyWithConfiguration(params, 20)
         print(ret)
         return ret
 

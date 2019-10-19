@@ -4,11 +4,10 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success}
 import scala.concurrent.duration.Duration
 
-class TetrisGame {
-  private var _board = new TetrisBoard
-  private var _isFinished = false
-  private var _score: Integer = 0
+class TetrisGame private(var _board: TetrisBoard = new TetrisBoard, var _isFinished: Boolean = false, var _score: Integer = 0) {
   _addNewPiece
+
+  def this() = this(new TetrisBoard, false, 0)
 
   def _addNewPiece = {
     val pieces = TetrisBoard.pieces
@@ -37,6 +36,17 @@ class TetrisGame {
     if(_board.pieceDropped) _addNewPiece
     _score += 1
     _score
+  }
+
+  def simulateAction(action: TetrisBoard#PlayerDroppedAction): List[TetrisGame] = {
+    val simulatedGame = new TetrisGame(_board, _isFinished, _score)
+    simulatedGame.executePlayerAction(action)
+      (for(newPiece <- TetrisBoard.pieces) yield {
+        simulatedGame._board.addNewPiece(newPiece) match {
+          case Some(new_board) => new TetrisGame(new_board, simulatedGame._isFinished, simulatedGame._score)
+          case None => new TetrisGame(simulatedGame._board, true, simulatedGame._score)
+        }
+      }).toList
   }
 
   def printBoard = _board.printBoard
@@ -142,12 +152,38 @@ class EmptySquaresBoxedInCounter extends Evaluator {
   }
 }
 
+
 class SearchEvalStrategy(val evaluator: Evaluator) extends Strategy {
   def choosePlayerAction(game: TetrisGame): Option[TetrisBoard#PlayerDroppedAction] = {
     val actions = game.getPlayerDroppedActions
     if(actions.length > 0) {
       val action = actions.reduceLeft((a1, a2) => if(evaluator(a1.newBoard) > evaluator(a2.newBoard)) a1 else a2)
       Some(action)
+    } else {
+      None
+    }
+  }
+
+  def chosenActionVal(game: TetrisGame): Double = {
+    choosePlayerAction(game) match {
+      case Some(action) => evaluator(action.newBoard)
+      case None => -9999999999.0
+    }
+  }
+}
+
+class SearchEvalStrategyLookahead1(val searchEvalStrategy: SearchEvalStrategy) extends Strategy {
+  def choosePlayerAction(game: TetrisGame): Option[TetrisBoard#PlayerDroppedAction] = {
+    val actions = game.getPlayerDroppedActions
+    var minEval: Int = 0
+    if(actions.length > 0) {
+      val actionsAndVals: List[(TetrisBoard#PlayerDroppedAction, Double)] =
+        (for(action <- actions) yield {
+          val games = game.simulateAction(action)
+          val maxEval = (for(game <- games) yield searchEvalStrategy.chosenActionVal(game)).min
+          (action, maxEval)
+        }).toList
+      Some(actionsAndVals.maxBy(_._2)._1)
     } else {
       None
     }
@@ -208,27 +244,12 @@ object RunStrategy {
       (a(0), new HeatCounter),
       (a(1), new EmptySquaresBoxedInColCounter),
       (a(2), new EmptySquaresBoxedInCounter),
-      (a(3), new EmptySquaresEnclosedCounter)))
-    runMany(nsim, () => new SearchEvalStrategy(evaluator)).harmonicMean
-  }
-
-  def runStrategyWithConfiguration2(a: Array[Double], nsim: Int=100): Double = {
-    val evaluator = new LinearCombonationEvaluator(List(
-      (a(0), new HeatCounter),
-      (a(1), new EmptySquaresBoxedInColCounter),
-      (a(2), new EmptySquaresBoxedInCounter),
       (a(3), new EmptySquaresEnclosedCounter),
       (a(4), new NumberOfPieces)))
     runMany(nsim, () => new SearchEvalStrategy(evaluator)).harmonicMean
   }
 
   def main(args: Array[String]): Unit = {
-    // val a: Array[Double] = Array(0.5249136820544308, 24.429006558196026, 1.3261097078240618, 71.8004953210443)
-    // val evaluator = new LinearCombonationEvaluator(List(
-    //   (a(0), new HeatCounter),
-    //   (a(1), new EmptySquaresBoxedInColCounter),
-    //   (a(2), new EmptySquaresBoxedInCounter),
-    //   (a(3), new EmptySquaresEnclosedCounter)))
     val a: Array[Double] = Array(0.699622016895185, 37.884364583911335, 3.7361015320832975, 98.53178383544285, 0.9647204495914462)
     val evaluator = new LinearCombonationEvaluator(List(
       (a(0), new HeatCounter),
@@ -236,7 +257,7 @@ object RunStrategy {
       (a(2), new EmptySquaresBoxedInCounter),
       (a(3), new EmptySquaresEnclosedCounter),
       (a(4), new NumberOfPieces)))
-    // println(runStrategyWithConfiguration(a, 10))
-    new Simulation(strategy=new SearchEvalStrategySingleMoves(evaluator), sleepTime=10).run
+    val strategy = new SearchEvalStrategySingleMoves(evaluator)
+    new Simulation(strategy=strategy, sleepTime=100).run
   }
 }
