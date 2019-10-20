@@ -64,6 +64,7 @@ case object RotateRight extends Move {
 
 trait PlayerAction {
   def execute: TetrisBoard
+  def nPlayerMoves: Integer = 1
 }
 
 class TetrisBoard(val width: Int = 10, val height: Int = 20, private val _board: BitSet = BitSet(), private val _piece: Option[BoardPiece] = None) {
@@ -75,6 +76,7 @@ class TetrisBoard(val width: Int = 10, val height: Int = 20, private val _board:
   }
   case class PlayerDroppedAction(singleActions: List[PlayerSingleAction], newBoard: TetrisBoard) extends PlayerAction {
     def execute = newBoard
+    override def nPlayerMoves = singleActions.size
   }
 
   def ==(other: TetrisBoard) = {

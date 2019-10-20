@@ -4,10 +4,14 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success}
 import scala.concurrent.duration.Duration
 
-class TetrisGame private(var _board: TetrisBoard = new TetrisBoard, var _isFinished: Boolean = false, var _score: Integer = 0) {
+case class GameScore(nGeneratedPieces: Integer = 0, nPlayerMoves: Integer = 0) {
+  def +(other: GameScore) = GameScore(nGeneratedPieces + other.nGeneratedPieces, nPlayerMoves + other.nPlayerMoves)
+}
+
+class TetrisGame private(var _board: TetrisBoard = new TetrisBoard, var _isFinished: Boolean = false, var _score: GameScore = GameScore()) {
   _addNewPiece
 
-  def this() = this(new TetrisBoard, false, 0)
+  def this() = this(new TetrisBoard, false)
 
   def _addNewPiece = {
     val pieces = TetrisBoard.pieces
@@ -17,6 +21,7 @@ class TetrisGame private(var _board: TetrisBoard = new TetrisBoard, var _isFinis
       case Some(new_board) => _board = new_board
       case None => _isFinished = true
     }
+    _score = _score + GameScore(0, 1)
   }
 
   def getPlayerSingleActions: List[TetrisBoard#PlayerSingleAction] = {
@@ -31,10 +36,10 @@ class TetrisGame private(var _board: TetrisBoard = new TetrisBoard, var _isFinis
     actions
   }
 
-  def executePlayerAction(action: PlayerAction): Int = {
+  def executePlayerAction(action: PlayerAction): GameScore = {
     _board = action.execute
+    _score = _score + GameScore(action.nPlayerMoves, 0)
     if(_board.pieceDropped) _addNewPiece
-    _score += 1
     _score
   }
 
@@ -65,7 +70,7 @@ class RunStrategy(val strategy: Strategy) {
   def onPlayerMove = {}
   def onGameFinish = {}
 
-  def run: Integer = {
+  def run: GameScore = {
     _game = new TetrisGame
     while(!_game.isFinished) {
       strategy.choosePlayerAction(_game) match {
@@ -227,7 +232,7 @@ object RunStrategy {
         }
         f.onComplete {
           case Success(score) => synchronized {
-            scores :+= score.toDouble
+            scores :+= score.nGeneratedPieces.toDouble
             // println(score)
           }
           case Failure(e) => e.printStackTrace
