@@ -21,7 +21,7 @@ class TetrisGame private(var _board: TetrisBoard = new TetrisBoard, var _isFinis
       case Some(new_board) => _board = new_board
       case None => _isFinished = true
     }
-    _score = _score + GameScore(0, 1)
+    _score = _score + GameScore(1, 0)
   }
 
   def getPlayerSingleActions: List[TetrisBoard#PlayerSingleAction] = {
@@ -38,7 +38,7 @@ class TetrisGame private(var _board: TetrisBoard = new TetrisBoard, var _isFinis
 
   def executePlayerAction(action: PlayerAction): GameScore = {
     _board = action.execute
-    _score = _score + GameScore(action.nPlayerMoves, 0)
+    _score = _score + GameScore(0, action.nPlayerMoves)
     if(_board.pieceDropped) _addNewPiece
     _score
   }
