@@ -1,3 +1,5 @@
+// Board and pieces design adapted from https://github.com/jaybutera/tetrisRL
+
 import scala.collection.immutable.BitSet
 import scala.collection.decorators._
 import scala.language.implicitConversions

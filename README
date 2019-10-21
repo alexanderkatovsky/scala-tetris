@@ -1,1 +1,9 @@
-Files under src/main/scala/collection/ is the scala-collection-contrib library (https://github.com/scala/scala-collection-contrib)
+Files under src/main/scala/collection/ is the scala-collection-contrib library (https://github.com/scala/scala-collection-contrib), used here for adding shift operations to `BitSet`
+
+To run a Tetris game:
+
+   # sbt
+   > compile
+   > run
+
+To run src/main/python/smac_optimize.py, assemble jar file by invoking `assembly` in sbt console

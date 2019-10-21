@@ -2,4 +2,5 @@ classes
 target
 lib
 .idea
+.metals
 **smac3-output**
